@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tinnitus Control Trainer</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding: 20px; }
+        .control { margin: 20px 0; }
+        .display { font-weight: bold; }
+        label { display: inline-block; width: 180px; text-align: right; margin-right: 10px; }
+        .warning {
+            background-color: #ffcccc;
+            border: 2px solid #ff0000;
+            color: #ff0000;
+            padding: 20px;
+            margin-bottom: 20px;
+            font-size: 18px;
+            font-weight: bold;
+            text-align: left;
+        }
+    </style>
+</head>
+<body>
+    <div class="warning">
+        <h2>⚠️ WARNING ⚠️</h2>
+        <p>This Tinnitus Control Trainer is an experimental tool and is NOT a medically approved treatment for tinnitus. Please be aware of the following:</p>
+        <ul>
+            <li>This tool may increase awareness of your tinnitus and potentially worsen symptoms for some individuals.</li>
+            <li>Extended use of this tool may lead to temporary changes in tinnitus perception.</li>
+            <li>This is not a substitute for professional medical advice, diagnosis, or treatment.</li>
+            <li>If you have tinnitus or suspect you might have it, consult with a qualified healthcare professional before using this tool.</li>
+            <li>Discontinue use immediately if you experience any discomfort, increased tinnitus, or other adverse effects.</li>
+            <li>Use this tool at your own risk. The creators and distributors of this tool are not responsible for any negative outcomes resulting from its use.</li>
+        </ul>
+        <p>By using this tool, you acknowledge that you understand these risks and agree to use it responsibly.</p>
+    </div>
+
+    <h1>Tinnitus Control Trainer</h1>
+    <div class="control">
+        <button id="toggleButton">Start</button>
+    </div>
+    <div class="control">
+        <label for="volumeSlider">Volume:</label>
+        <input type="range" id="volumeSlider" min="0" max="100" step="1" value="10">
+        <span id="volumeDisplay" class="display">0.01%</span>
+    </div>
+    <div class="control">
+        <label for="frequencySlider">Frequency (Hz):</label>
+        <input type="range" id="frequencySlider" min="100" max="15000" step="100" value="5000">
+        <span id="frequencyDisplay" class="display">5000 Hz</span>
+    </div>
+    <div class="control">
+        <label for="oscillateCheckbox">Oscillate:</label>
+        <input type="checkbox" id="oscillateCheckbox">
+    </div>
+    <div class="control">
+        <label for="intervalSlider">Oscillation Interval (s):</label>
+        <input type="range" id="intervalSlider" min="1" max="10" step="0.1" value="1">
+        <span id="intervalDisplay" class="display">1.0s</span>
+    </div>
+    <div class="control">
+        <label for="increaseIntervalCheckbox">Increase Interval:</label>
+        <input type="checkbox" id="increaseIntervalCheckbox">
+    </div>
+    <script>
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        let oscillator = null;
+        let gainNode = null;
+        let oscillationInterval = null;
+
+        const toggleButton = document.getElementById('toggleButton');
+        const volumeSlider = document.getElementById('volumeSlider');
+        const volumeDisplay = document.getElementById('volumeDisplay');
+        const frequencySlider = document.getElementById('frequencySlider');
+        const frequencyDisplay = document.getElementById('frequencyDisplay');
+        const oscillateCheckbox = document.getElementById('oscillateCheckbox');
+        const intervalSlider = document.getElementById('intervalSlider');
+        const intervalDisplay = document.getElementById('intervalDisplay');
+        const increaseIntervalCheckbox = document.getElementById('increaseIntervalCheckbox');
+
+        function startSound() {
+            oscillator = audioContext.createOscillator();
+            gainNode = audioContext.createGain();
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(frequencySlider.value, audioContext.currentTime);
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            oscillator.start();
+            updateVolume();
+            updateFrequency();
+            if (oscillateCheckbox.checked) {
+                startOscillation();
+            }
+        }
+
+        function stopSound() {
+            if (oscillator) {
+                oscillator.stop();
+                oscillator.disconnect();
+                oscillator = null;
+            }
+            stopOscillation();
+        }
+
+        function updateVolume() {
+            if (gainNode) {
+                const volume = Math.pow(volumeSlider.value / 100, 3) * 0.1;
+                gainNode.gain.setValueAtTime(volume, audioContext.currentTime);
+                volumeDisplay.textContent = `${(volume * 100).toFixed(4)}%`;
+            }
+        }
+
+        function updateFrequency() {
+            if (oscillator) {
+                oscillator.frequency.setValueAtTime(frequencySlider.value, audioContext.currentTime);
+                frequencyDisplay.textContent = `${frequencySlider.value} Hz`;
+            }
+        }
+
+        function startOscillation() {
+            stopOscillation(); // Clear any existing interval
+            let currentInterval = parseFloat(intervalSlider.value) * 1000;
+            let isOn = true;
+
+            function oscillate() {
+                if (gainNode) {
+                    gainNode.gain.setValueAtTime(isOn ? getVolumeFromSlider() : 0, audioContext.currentTime);
+                    isOn = !isOn;
+
+                    if (increaseIntervalCheckbox.checked) {
+                        currentInterval += 100; // Increase by 100ms each cycle
+                        intervalSlider.value = (currentInterval / 1000).toFixed(1);
+                        updateIntervalDisplay();
+                    }
+
+                    oscillationInterval = setTimeout(oscillate, currentInterval);
+                }
+            }
+
+            oscillate();
+        }
+
+        function stopOscillation() {
+            if (oscillationInterval) {
+                clearTimeout(oscillationInterval);
+                oscillationInterval = null;
+            }
+        }
+
+        function getVolumeFromSlider() {
+            return Math.pow(volumeSlider.value / 100, 3) * 0.1;
+        }
+
+        function updateIntervalDisplay() {
+            intervalDisplay.textContent = `${intervalSlider.value}s`;
+        }
+
+        toggleButton.addEventListener('click', () => {
+            if (oscillator) {
+                stopSound();
+                toggleButton.textContent = 'Start';
+            } else {
+                startSound();
+                toggleButton.textContent = 'Stop';
+            }
+        });
+
+        volumeSlider.addEventListener('input', updateVolume);
+        frequencySlider.addEventListener('input', updateFrequency);
+        intervalSlider.addEventListener('input', () => {
+            updateIntervalDisplay();
+            if (oscillateCheckbox.checked && oscillator) {
+                startOscillation(); // Restart oscillation with new interval
+            }
+        });
+
+        oscillateCheckbox.addEventListener('change', () => {
+            if (oscillator) {
+                if (oscillateCheckbox.checked) {
+                    startOscillation();
+                } else {
+                    stopOscillation();
+                    updateVolume(); // Ensure volume is set correctly when oscillation is turned off
+                }
+            }
+        });
+
+        increaseIntervalCheckbox.addEventListener('change', () => {
+            if (oscillateCheckbox.checked && oscillator) {
+                startOscillation(); // Restart oscillation with new settings
+            }
+        });
+    </script>
+</body>
+</html>
